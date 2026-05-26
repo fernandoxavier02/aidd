@@ -1,0 +1,5 @@
+{
+  "enabled": false,
+  "testCommand": ["npx", "vitest", "run", "--reporter=verbose"],
+  "_comment": "enabled: turn the TDD RED-gate on when entering Phase 9 (or via /aidd-impl-start); off during setup/scaffolding/refactor. Session override: AIDD_TDD_OVERRIDE=1. testCommand: the runner the guard uses to decide RED/GREEN — the edited test file path is appended as the final argument. Change it for your stack (e.g. [\"npx\",\"jest\"], [\"pytest\",\"-q\"], [\"go\",\"test\"])."
+}

@@ -1,0 +1,4 @@
+{
+  "enabled": false,
+  "_comment": "Set enabled:true to activate aidd-rls-guard (Postgres row-level-security enforcement on SQL migrations / Prisma schema). Off by default — opt in per project."
+}

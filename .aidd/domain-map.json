@@ -1,0 +1,61 @@
+{
+  "$schema": "./domain-map.schema.json",
+  "version": 1,
+  "_comment": "Generic DDD layer map for aidd-domain-guard. Adjust the globs to YOUR folder layout, or delete this file to disable the domain guard. Globs are matched against repo-relative paths with forward slashes.",
+  "layers": {
+    "domain": [
+      "src/domain/**",
+      "src/**/entities/**",
+      "src/**/value-objects/**"
+    ],
+    "application": [
+      "src/application/**",
+      "src/use-cases/**",
+      "src/flows/**"
+    ],
+    "ports": [
+      "src/ports/**",
+      "src/**/ports/**"
+    ],
+    "infrastructure": [
+      "src/infrastructure/**",
+      "src/db/**",
+      "src/adapters/**"
+    ],
+    "frontend": [
+      "apps/**",
+      "web/**",
+      "front-end/**"
+    ],
+    "shared": [
+      "packages/shared/**"
+    ]
+  },
+  "rules": [
+    {
+      "from": "domain",
+      "cannot_import_from": ["application", "infrastructure", "frontend"],
+      "rationale": "Domain depends only on abstractions — no upstream layers allowed"
+    },
+    {
+      "from": "application",
+      "cannot_import_from": ["infrastructure"],
+      "exception_via": "ports",
+      "rationale": "Application talks to infrastructure only via port interfaces (DI)"
+    },
+    {
+      "from": "frontend",
+      "cannot_import_from": ["domain", "application", "infrastructure"],
+      "rationale": "Frontend talks to the backend via API only — no direct module imports"
+    },
+    {
+      "from": "shared",
+      "cannot_import_from": ["domain", "application", "infrastructure", "frontend"],
+      "rationale": "Shared kernel has no upstream project dependencies"
+    }
+  ],
+  "frontend_business_suppress": [
+    "apps/*/lib/calculators/**",
+    "apps/*/domain/**"
+  ]
+}

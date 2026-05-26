@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aidd/domain-map.schema.json",
+  "title": "AIDD Domain Map",
+  "description": "Configuration for aidd-domain-guard.cjs — defines DDD layers and import rules",
+  "type": "object",
+  "required": ["$schema", "version", "layers", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "layers": {
+      "type": "object",
+      "description": "Map of layer name → array of glob patterns that belong to this layer",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" },
+        "minItems": 1
+      },
+      "minProperties": 1
+    },
+    "rules": {
+      "type": "array",
+      "description": "Import restriction rules. Each rule declares what a layer cannot import from.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["from", "cannot_import_from"],
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Source layer name (must exist in layers)"
+          },
+          "cannot_import_from": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "description": "Target layer names that are forbidden"
+          },
+          "exception_via": {
+            "type": "string",
+            "description": "If import target matches this layer, the rule is satisfied (DI via port)"
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Human-readable explanation for this rule"
+          }
+        }
+      }
+    },
+    "frontend_business_suppress": {
+      "type": "array",
+      "description": "Glob patterns exempt from Frontend_Business_Guard checks",
+      "items": { "type": "string" }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "aidd-harness",
+  "version": "1.0.0",
+  "description": "AIDD — AI-Driven Development harness: project-agnostic context system + hooks + skills + gates for Claude Code and Codex",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test",
+    "test:hooks": "node --test tests/hooks/"
+  },
+  "keywords": ["aidd", "ai-driven-development", "claude-code", "codex", "tdd", "bdd", "ddd", "spec-driven", "harness", "template"],
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "license": "MIT"
+}

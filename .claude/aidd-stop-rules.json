@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "source": "AIDD.md § ⚠️ Stop Rules",
+  "rules": [
+    {
+      "id": "TDD",
+      "title": "Test-Driven Development",
+      "summary": "red → green → refactor: failing test first, minimal code to pass, refactor after green.",
+      "forbid": [
+        "production code before its test",
+        "skipped/commented tests in commits",
+        "use of --no-verify"
+      ],
+      "enforced_by": ["aidd-tdd-guard.cjs (PreToolUse)"]
+    },
+    {
+      "id": "BDD",
+      "title": "Behavior-Driven Development",
+      "summary": "EARS or Given/When/Then for every requirement; each scenario maps to one executable acceptance test.",
+      "forbid": ["spec without testable scenarios"],
+      "enforced_by": ["kiro:validate-spec (Phase 6)"]
+    },
+    {
+      "id": "DDD",
+      "title": "Domain-Driven Design",
+      "summary": "domain → application → infrastructure; dependencies inward only; ubiquitous language.",
+      "forbid": [
+        "framework imports inside domain layer",
+        "internal type imports across modules"
+      ],
+      "enforced_by": ["gsd-pattern-mapper (Phase 7/11)"]
+    },
+    {
+      "id": "TWO_ATTEMPT",
+      "title": "Two-attempt rule",
+      "summary": "Two consecutive failures on same root cause → STOP, write diagnosis in VERIFICATION_REPORT.md, then resume.",
+      "forbid": ["more than 2 attempts at same root cause without written diagnosis"],
+      "enforced_by": ["aidd-sensor.cjs (logs failures); agent discipline reads sensor log"]
+    },
+    {
+      "id": "NON_INVENTIVE",
+      "title": "Non-inventive rule",
+      "summary": "If a fact, file, or requirement is missing, log a gap or ASK the user. Never fabricate.",
+      "forbid": ["filling gaps with assumptions", "fabricated requirements/files/facts"],
+      "enforced_by": ["agent discipline (AIDD.md § Operating rules)"]
+    },
+    {
+      "id": "SPEC_BOUNDARY",
+      "title": "Spec is contract — inviolable",
+      "summary": "If a behavior, endpoint, field, or rule is not in requirements.md, design.md, or tasks.md, it MUST NOT be implemented. Gaps are blockers, not invitations to extrapolate.",
+      "forbid": [
+        "implementing behavior not specified in requirements.md",
+        "choosing technologies/patterns not specified in design.md",
+        "implementing tasks out of order or adding bonus tasks not in tasks.md",
+        "filling spec ambiguity with agent judgment instead of stopping and asking"
+      ],
+      "enforced_by": ["agent discipline (AIDD.md § Spec Boundary Rule); REVIEW gate Phase 11"]
+    }
+  ]
+}

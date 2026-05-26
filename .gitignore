@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+.remember/logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# AIDD working memory (per-task scratch — keep templates, ignore live state)
+.aidd/current/CURRENT_TASK.md
+.aidd/current/FILES_READ.md
+.aidd/current/FILES_CHANGED.md
+.aidd/current/VERIFICATION_REPORT.md
+.aidd/current/BATCHES.jsonl
+.aidd/current/CONFIDENCE.yaml
+.aidd/current/*.lock
+.aidd/current/*.context.json

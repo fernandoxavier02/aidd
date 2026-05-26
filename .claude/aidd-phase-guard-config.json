@@ -1,0 +1,5 @@
+{
+  "enabled": true,
+  "mode": "warn",
+  "_comment": "mode: 'warn' apenas registra em VERIFICATION_REPORT (não bloqueia); 'block' nega o tool call. Override por sessão: AIDD_PHASE_OVERRIDE=1. Default: warn — escala para block após confiança no hook (~10 ciclos AIDD sem falso positivo)."
+}
