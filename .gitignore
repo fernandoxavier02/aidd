@@ -19,3 +19,8 @@ Thumbs.db
 .aidd/current/CONFIDENCE.yaml
 .aidd/current/*.lock
 .aidd/current/*.context.json
+
+# Hook telemetry + runtime scratch (generated at runtime)
+.aidd/telemetry/
+.aidd/.tdd-heartbeat.json
+.aidd/current/adversarial-context/
