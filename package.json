@@ -4,7 +4,7 @@
   "description": "AIDD — AI-Driven Development harness: project-agnostic context system + hooks + skills + gates for Claude Code and Codex. Installable per-project via `aidd init` (hybrid model: engine referenced from node_modules, editable docs scaffolded with a version manifest).",
   "type": "commonjs",
   "bin": {
-    "aidd": "./bin/aidd.cjs"
+    "aidd": "bin/aidd.cjs"
   },
   "files": [
     "bin/",
@@ -30,8 +30,21 @@
     "test:cli": "node --test \"tests/cli/*.test.cjs\"",
     "prepublishOnly": "npm test"
   },
-  "keywords": ["aidd", "ai-driven-development", "claude-code", "codex", "tdd", "bdd", "ddd", "spec-driven", "harness", "template"],
-  "engines": { "node": ">=18" },
+  "keywords": [
+    "aidd",
+    "ai-driven-development",
+    "claude-code",
+    "codex",
+    "tdd",
+    "bdd",
+    "ddd",
+    "spec-driven",
+    "harness",
+    "template"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "js-yaml": "^4.1.0"
   },
