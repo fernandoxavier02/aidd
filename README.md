@@ -1,10 +1,10 @@
 # AIDD Harness
 
-Project-agnostic template that materializes **AIDD — AI-Driven Development** as a single context system + automation hooks + lifecycle skills + quality gates for **Claude Code** and **Codex**.
+Project-agnostic product that materializes **AIDD — AI-Driven Development** as a single context system + automation hooks + lifecycle skills + quality gates for **Claude Code** and **Codex**.
 
-Clone it, fill the placeholders in `PROJECT_BRIEF.md`, and your repository starts every AI session already knowing the methodology, the stop rules, and where to read.
+Install it into any project with one command, fill the placeholders in `PROJECT_BRIEF.md`, and your repository starts every AI session already knowing the methodology, the stop rules, and where to read.
 
-**Status:** v1.0.0 — agnostic port (6 core docs + 12 hooks + 8 skills + configs + hook tests).
+**Status:** v2.0.0 — npm product (`@fx-studio-ai/aidd`): installable, updatable, self-diagnosing. Same 6 core docs + 12 hooks + 8 skills + configs + tests as the v1 template, now with a CLI and a version manifest.
 
 ## What AIDD gives you
 
@@ -13,38 +13,71 @@ Clone it, fill the placeholders in `PROJECT_BRIEF.md`, and your repository start
 - **Twelve-phase lifecycle** from intake to documentation, with five human approval gates.
 - **Working memory** in `.aidd/current/` so any session can pick up exactly where the last left off.
 
-## Quick start
+## Install (npm — recommended)
 
 ```bash
-git clone <this-template> my-project
 cd my-project
-npm install         # fetches js-yaml (used by the confidence-score feature)
-npm test            # hook tests should pass — proves the harness is wired
+npm install --save-dev @fx-studio-ai/aidd
+npx aidd init          # scaffold docs/configs/skills + wire the hooks
+npx aidd doctor        # verify everything is green
 ```
 
-Then:
+Then fill the placeholders in `PROJECT_BRIEF.md`, read `AIDD.md` + `AIDD-RUNBOOK.md`, and restart your Claude Code session so the hooks load.
 
-1. Open `PROJECT_BRIEF.md` and replace every `<placeholder>` with your project's reality.
-2. Read `AIDD.md` (the methodology) and `AIDD-RUNBOOK.md` (the operational recipe).
-3. Adjust `.aidd/domain-map.json` to your folder layout (or delete it to disable the DDD layer guard).
-4. See `INSTALL.md` for hook registration details and `PREREQUISITES.md` for optional external dependencies.
+### How the install works (hybrid model)
+
+- **Engine (the 12 hooks)** stays inside `node_modules/@fx-studio-ai/aidd/` and is referenced from the generated `.claude/settings.json`. Upgrading the package upgrades the guards — no file copying.
+- **Editable content** (methodology docs, `PROJECT_BRIEF.md`, configs, skills, secrets catalog) is copied into your project once and tracked in `.aidd/harness.json` (version + content fingerprint per file).
+- **`npx aidd update`** refreshes files you have **not** edited and never touches the ones you have. `--dry-run` previews; `--force` overrides.
+- **`npx aidd doctor`** checks the wiring end to end (engine reachable, hooks resolve, configs parse, drift report). Exit code 1 on errors — CI-friendly.
+- Existing `CLAUDE.md` / `AGENTS.md` / `.claude/settings.json` are **merged, never overwritten**: the bootloader lives in a marked block; hook registrations are added idempotently.
+
+### Projects that do not keep `node_modules`
+
+```bash
+npx -p @fx-studio-ai/aidd aidd init --mode copy
+```
+
+Copy mode ships the engine into `.claude/hooks/` as well — everything is hash-tracked, `aidd update` still works.
+
+### Via the unified FX Studio AI installer
+
+The unified installer offers a product menu (Pipeline Orchestrator, AIDD, or both):
+
+```bash
+npx @fx-studio-ai/pipeline-orchestrator-install
+```
+
+## Install (template clone — legacy)
+
+Cloning the repository and copying files by hand still works — see `INSTALL.md`. The npm route is preferred because it gives you versioned updates.
+
+## CLI reference
+
+```
+aidd init    [--dir <path>] [--mode hybrid|copy] [--force] [--dry-run]
+aidd update  [--dir <path>] [--force] [--dry-run]
+aidd doctor  [--dir <path>] [--json]
+aidd version
+```
 
 ## Components
 
 | Layer | Files |
 |---|---|
-| Bootloaders | `CLAUDE.md` (Claude Code), `AGENTS.md` (Codex) |
+| CLI | `bin/aidd.cjs`, `lib/cli/` (init/update/doctor, manifest, settings merge) |
+| Bootloaders | `CLAUDE.md` (Claude Code), `AGENTS.md` (Codex) — managed block in consumers |
 | Methodology | `AIDD.md`, `AIDD-RUNBOOK.md` |
 | Context routing | `CONTEXT_INDEX.md`, `PROJECT_BRIEF.md` (template) |
 | Hooks (12) | `.claude/hooks/aidd-*.cjs` + `lib/` + `aidd-secrets-patterns.json` |
 | Configs | `.claude/aidd-*.json`, `.claude/settings.json` |
 | Skills (8) | `.claude/skills/aidd*/` |
-| Working memory | `.aidd/current/` (templates) + `.aidd/domain-map.json` |
-| Tests | `tests/hooks/*.test.cjs` |
+| Working memory | `.aidd/current/` (templates) + `.aidd/domain-map.json` + `.aidd/harness.json` (manifest, consumers only) |
+| Tests | `tests/hooks/*.test.cjs`, `tests/cli/*.test.cjs` |
 
 ## Prerequisites
 
-The harness runs standalone for the core lifecycle. The guards need no external dependencies (the glob matcher is vendored). One small dependency — `js-yaml` — is pulled by `npm install` and used by the optional confidence-score feature. Some advanced skills delegate to external tooling (a Kiro spec workflow, GSD agents); see `PREREQUISITES.md` — these are optional and the harness degrades gracefully without them.
+The harness runs standalone for the core lifecycle. The guards need no external dependencies (the glob matcher is vendored). One small dependency — `js-yaml` — is used by the optional confidence-score feature. Some advanced skills delegate to external tooling (a Kiro spec workflow, GSD agents); see `PREREQUISITES.md` — these are optional and the harness degrades gracefully without them.
 
 Cross-platform. Node >= 18.
 

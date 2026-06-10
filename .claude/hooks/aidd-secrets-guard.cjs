@@ -84,9 +84,12 @@ function allow() {
 // Catalog loader — fail-safe DENY se catalog < 12 patterns
 // ---------------------------------------------------------------------------
 function loadCatalog() {
+  // Resolucao: env override → catalogo do projeto (instalado por `aidd init`,
+  // customizavel sem tocar node_modules) → catalogo embutido no pacote.
+  const projectCatalog = path.join(getProjectRoot(), ".claude", "aidd-secrets-patterns.json");
   const catalogPath =
     process.env.AIDD_SECRETS_CATALOG ||
-    path.join(__dirname, "aidd-secrets-patterns.json");
+    (fs.existsSync(projectCatalog) ? projectCatalog : path.join(__dirname, "aidd-secrets-patterns.json"));
 
   let raw;
   try {

@@ -1,12 +1,34 @@
 {
-  "name": "aidd-harness",
-  "version": "1.0.0",
-  "description": "AIDD — AI-Driven Development harness: project-agnostic context system + hooks + skills + gates for Claude Code and Codex",
-  "private": true,
+  "name": "@fx-studio-ai/aidd",
+  "version": "2.0.0",
+  "description": "AIDD — AI-Driven Development harness: project-agnostic context system + hooks + skills + gates for Claude Code and Codex. Installable per-project via `aidd init` (hybrid model: engine referenced from node_modules, editable docs scaffolded with a version manifest).",
   "type": "commonjs",
+  "bin": {
+    "aidd": "./bin/aidd.cjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    ".claude/",
+    ".aidd/domain-map.json",
+    ".aidd/domain-map.schema.json",
+    ".aidd/current/CURRENT_TASK.template.md",
+    "AIDD.md",
+    "AIDD-RUNBOOK.md",
+    "CONTEXT_INDEX.md",
+    "PROJECT_BRIEF.md",
+    "PREREQUISITES.md",
+    "INSTALL.md",
+    "CLAUDE.md",
+    "AGENTS.md",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --test",
-    "test:hooks": "node --test tests/hooks/"
+    "test:hooks": "node --test \"tests/hooks/*.test.cjs\"",
+    "test:cli": "node --test \"tests/cli/*.test.cjs\"",
+    "prepublishOnly": "npm test"
   },
   "keywords": ["aidd", "ai-driven-development", "claude-code", "codex", "tdd", "bdd", "ddd", "spec-driven", "harness", "template"],
   "engines": { "node": ">=18" },
