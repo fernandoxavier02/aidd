@@ -1,7 +1,7 @@
 {
   "name": "@fx-studio-ai/aidd",
   "version": "2.0.0",
-  "description": "AIDD — AI-Driven Development harness: project-agnostic context system + hooks + skills + gates for Claude Code and Codex. Installable per-project via `aidd init` (hybrid model: engine referenced from node_modules, editable docs scaffolded with a version manifest).",
+  "description": "AIDD — AI-Driven Development harness: project-agnostic context system + hooks + skills + gates for Claude Code, Codex, and any git repo (provider-neutral guard core, warn-tier Codex adapter, git pre-commit net). Installable per-project via `aidd init` (hybrid model: engine referenced from node_modules, editable docs scaffolded with a version manifest).",
   "type": "commonjs",
   "bin": {
     "aidd": "bin/aidd.cjs"

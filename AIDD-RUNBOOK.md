@@ -87,6 +87,14 @@ Phases 5–8 use your installed spec workflow (e.g. Kiro) when present; otherwis
 
 **Stop:** if ACs are not all green, do NOT force closure. Return to `/aidd-impl-start` or the tasks phase (if scope changed).
 
+## Enforcement layers (edit-time is not the only net)
+
+The guards enforce on up to three layers — full coverage in `AIDD.md § Provider support matrix`:
+
+1. **Claude Code edit-time** (`.claude/settings.json` hooks) — full enforcement, session overrides available.
+2. **Codex edit-time** (`.codex/hooks.json`, warn-tier/best-effort — trust-gated).
+3. **git pre-commit** (the guaranteed net; scans staged blobs; ignores session overrides). Operational note: a commit blocked with `[aidd-git-net] BLOQUEADO ...` is this layer firing — fix the staged content; `--no-verify` remains forbidden by the methodology.
+
 ## Enforcement — `aidd-phase-guard.cjs`
 
 PreToolUse hook that validates edits against the current phase:

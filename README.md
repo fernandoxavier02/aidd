@@ -28,7 +28,7 @@ Then fill the placeholders in `PROJECT_BRIEF.md`, read `AIDD.md` + `AIDD-RUNBOOK
 
 ### How the install works (hybrid model)
 
-- **Engine (the 12 hooks)** stays inside `node_modules/@fx-studio-ai/aidd/` and is referenced from the generated `.claude/settings.json`. Upgrading the package upgrades the guards — no file copying.
+- **Engine (the 12 hooks + the neutral guard core + git-net + Codex adapter)** stays inside `node_modules/@fx-studio-ai/aidd/` and is referenced from the generated `.claude/settings.json`, the git pre-commit wrapper, and `.codex/hooks.json`. Upgrading the package upgrades the guards on every layer — no file copying.
 - **Editable content** (methodology docs, `PROJECT_BRIEF.md`, configs, skills, secrets catalog) is copied into your project once and tracked in `.aidd/harness.json` (version + content fingerprint per file).
 - **`npx aidd update`** refreshes files you have **not** edited and never touches the ones you have. `--dry-run` previews; `--force` overrides.
 - **`npx aidd doctor`** checks the wiring end to end (engine reachable, hooks resolve, configs parse, drift report). Exit code 1 on errors — CI-friendly.

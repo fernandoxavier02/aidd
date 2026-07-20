@@ -57,6 +57,7 @@ Identify your task type and apply the corresponding lane. If a referenced docume
 | Security / consent / data handling | A or B | `RISK_REGISTER.md` | `SECURITY.md`, `THREAT_MODEL.md`, `PRIVACY.md` |
 | Deployment / environments / IaC | A | — | `DEPLOYMENT.md`, `infra/README.md` |
 | Claude Code automation / hooks / session bootstrap | A | `.claude/hooks/*.cjs`, `.claude/settings.json` | `INSTALL.md` |
+| Guard rules / enforcement layers / provider adapters | A | `AIDD.md` "Provider support matrix", `.claude/hooks/lib/guards/` | `.claude/hooks/lib/git-net.cjs`, `.claude/hooks/lib/adapters/codex.cjs`, `lib/cli/git-hooks.cjs`, `lib/cli/codex-settings.cjs` |
 | Batched Phase 9 / adversarial trio | A | `AIDD.md` "Batched Phase 9" section | `.claude/adversarial-checklists/` (if present) |
 | Domain layer mapping / DDD boundary enforcement | A | `.aidd/domain-map.json` | — |
 

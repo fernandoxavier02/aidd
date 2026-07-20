@@ -45,6 +45,7 @@ Claude Code–specific bindings for the abstract operations defined in `AIDD.md`
   - `SessionStart` → `aidd-session-bootstrap.cjs` injects a summary of `.aidd/current/*` + tail of the decision log at the start of every session.
   - `PostToolUse` → `aidd-sensor.cjs` appends to `VERIFICATION_REPORT.md` when Edit/Write/Bash returns an error.
   - `PreToolUse` → `aidd-contract-guard.cjs` blocks edits to immutable core files; `aidd-phase-guard.cjs` blocks out-of-root and out-of-phase edits; `aidd-tdd-guard.cjs` enforces the RED gate.
+  - The hooks are thin shells over a **provider-neutral guard core** (`.claude/hooks/lib/guards/`). Claude Code is the edit-time layer; the same rules also enforce at commit-time (git pre-commit net) and, best-effort, in Codex — see `AIDD.md` "Provider support matrix". A commit blocked with `[aidd-git-net]` is the commit-time layer firing.
 - The bootstrap reduces but **does not replace** the MUST READ rule — in sessions with compacted context, reload the 3 files manually.
 - **Reading:** use `Read` for known paths, `Grep` for content searches, `Glob` for file discovery. Never bulk-read.
 - **Two-attempt rule:** two consecutive failures on the same root cause ⇒ stop, write the diagnosis in `VERIFICATION_REPORT.md` (root-cause hypotheses, what was tried, what is unknown), then retry.
