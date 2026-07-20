@@ -1,29 +1,18 @@
 #!/usr/bin/env node
+// Thin Claude Code shell over the neutral core (lib/guards/contract.cjs).
+// Keeps: stdin protocol, path validation, the audited V1.1 install-bypass
+// (edit-time affordance — NOT honored by the git net).
 const path = require("node:path");
 const fs = require("node:fs");
 const { getProjectRoot, validateSafePath } = require("./lib/aidd-paths.cjs");
+const core = require("./lib/guards/contract.cjs");
 
 const WATCHED = new Set(["Edit", "Write", "MultiEdit"]);
 
-const PROTECTED_FILES = [
-  /^AIDD\.md$/,
-  /^CONTEXT_INDEX\.md$/,
-  /^AGENTS\.md$/,
-  /^CLAUDE\.md$/,
-];
-
 // ---------------------------------------------------------------------------
 // Aidd_Contract_Guard_V1.1 — bypass para install de v2
-//
-// Problema: v2 precisa editar arquivos protegidos (AIDD.md, CONTEXT_INDEX.md,
-// etc.) durante o processo de install — paradoxo de auto-instalacao.
-// Solucao (design §3.12): env var AIDD_V2_INSTALL=1 + whitelist fixa em codigo
-// habilita bypass auditado. Whitelist NAO e lida de arquivo externo (risco de
-// injecao via arquivo de config). Todo bypass gera entry em .aidd/telemetry/
-// contract-bypass.jsonl para auditoria (propriedade P2 do design).
+// Whitelist fixa — NAO modificar sem ADR superseding este.
 // ---------------------------------------------------------------------------
-
-/** Whitelist fixa — NAO modificar sem ADR superseding este. */
 const INSTALL_WHITELIST = [
   "AIDD.md",
   "CONTEXT_INDEX.md",
@@ -31,19 +20,11 @@ const INSTALL_WHITELIST = [
   "CLAUDE.md",
 ];
 
-/**
- * Retorna true somente se AIDD_V2_INSTALL=1 E o path esta na whitelist.
- * Qualquer outra combinacao retorna false (deny preservado).
- */
 function isInstallBypassAllowed(relPath) {
   if (process.env.AIDD_V2_INSTALL !== "1") return false;
   return INSTALL_WHITELIST.includes(relPath);
 }
 
-/**
- * Persiste entrada de auditoria em .aidd/telemetry/contract-bypass.jsonl.
- * Falhas de IO nao bloqueiam o bypass — log best-effort.
- */
 function logBypass(relPath, sessionId) {
   const telemetryDir = path.join(getProjectRoot(), ".aidd", "telemetry");
   try { fs.mkdirSync(telemetryDir, { recursive: true }); } catch (_e) {}
@@ -59,12 +40,6 @@ function logBypass(relPath, sessionId) {
 }
 
 // ---------------------------------------------------------------------------
-
-const PROTECTED_DIRS = [
-  /^\.kiro\/steering\/[^/]+\.md$/,
-];
-
-const ADR_PATTERN = /^docs\/adr\/(\d+)-[^/]+\.md$/;
 
 function readStdin() {
   return new Promise((res) => {
@@ -109,50 +84,21 @@ function allow() { process.exit(0); }
   const abs = path.isAbsolute(filePath) ? filePath : path.join(root, filePath);
 
   // V1.1: bypass auditado para install de v2 — verificar ANTES do deny
-  let matchedProtected = false;
-  for (const pat of PROTECTED_FILES) {
-    if (pat.test(rel)) { matchedProtected = true; break; }
-  }
-  if (matchedProtected && isInstallBypassAllowed(rel)) {
+  if (isInstallBypassAllowed(rel)) {
     logBypass(rel, payload.session_id);
     allow();
     return;
   }
 
-  for (const pat of PROTECTED_FILES) {
-    if (pat.test(rel)) {
-      deny(
-        `${rel} e parte do nucleo AIDD (metodologia/bootloader/index). ` +
-        `Mudancas exigem ADR + atualizacao de CURRENT_TASK.md. ` +
-        `Se for intencional, registre o plano em .aidd/current/CURRENT_TASK.md primeiro e desabilite este gate temporariamente em .claude/settings.json.`
-      );
-      return;
-    }
-  }
+  const verdict = core.evaluate({
+    action: tool === "Write" ? "write" : "edit",
+    path: rel,
+    content: "",
+    projectRoot: root,
+    fileExists: fs.existsSync(abs),
+    config: {},
+  });
 
-  for (const pat of PROTECTED_DIRS) {
-    if (pat.test(rel)) {
-      deny(
-        `${rel} e canonical steering Kiro v3. ` +
-        `Mudar product/structure/tech requer ADR. ` +
-        `Se for intencional, abra ADR em docs/adr/ primeiro.`
-      );
-      return;
-    }
-  }
-
-  const adrMatch = rel.match(ADR_PATTERN);
-  if (adrMatch) {
-    if (tool === "Write" && !fs.existsSync(abs)) {
-      allow();
-      return;
-    }
-    deny(
-      `${rel} e um ADR. ADRs aceitos sao imutaveis - mudancas exigem novo ADR (superseding). ` +
-      `Para criar novo ADR: use proximo numero sequencial em docs/adr/.`
-    );
-    return;
-  }
-
+  if (verdict.verdict === "deny") { deny(verdict.message); return; }
   allow();
 })();

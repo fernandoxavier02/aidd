@@ -13,10 +13,15 @@ npx aidd doctor
 
 What `aidd init` does:
 
-1. Copies the editable content into your project: methodology docs (`AIDD.md`, `AIDD-RUNBOOK.md`, `CONTEXT_INDEX.md`, `PROJECT_BRIEF.md`, `PREREQUISITES.md`), configs (`.claude/aidd-*.json`), the 8 lifecycle skills (`.claude/skills/aidd*/`), the secrets catalog (`.claude/aidd-secrets-patterns.json`), and the `.aidd/` working-memory templates.
-2. Generates/merges `.claude/settings.json` with the hook registrations pointing at the engine inside `node_modules/@fx-studio-ai/aidd/.claude/hooks/` (hybrid model — `npm update` upgrades the guards).
-3. Adds the bootloader as a **marked block** inside `CLAUDE.md` and `AGENTS.md` (created if absent, appended if present — your content is never touched).
-4. Writes the install manifest `.aidd/harness.json` (package version + sha256 per installed file).
+1. **Detects the enforcement layers** for your project: `.claude/` (Claude Code), `.codex/` or a pre-existing `AGENTS.md` (Codex), `.git/` (any committer). Force or veto with `--providers claude,codex,git` / `--no-git-hooks`.
+2. Copies the editable content into your project: methodology docs (`AIDD.md`, `AIDD-RUNBOOK.md`, `CONTEXT_INDEX.md`, `PROJECT_BRIEF.md`, `PREREQUISITES.md`), configs (`.claude/aidd-*.json`), the 8 lifecycle skills (`.claude/skills/aidd*/`), the secrets catalog (`.claude/aidd-secrets-patterns.json`), and the `.aidd/` working-memory templates.
+3. **Claude layer:** generates/merges `.claude/settings.json` with the hook registrations pointing at the engine inside `node_modules/@fx-studio-ai/aidd/.claude/hooks/` (hybrid model — `npm update` upgrades the guards).
+4. **Codex layer:** generates/merges `.codex/hooks.json` registering the warn-tier adapter (`"type": "command"`, matcher `apply_patch`). Best-effort — Codex asks you to trust the hook before it runs.
+5. **Git layer:** installs the pre-commit net into the *effective* hooks dir (`git rev-parse --git-path hooks`, honoring `core.hooksPath`). A pre-existing pre-commit hook is renamed to `pre-commit.local` and chained, never overwritten. Per-clone: every fresh clone needs `aidd init`/`update` to re-arm the net.
+6. Adds the bootloader as a **marked block** inside `CLAUDE.md` and `AGENTS.md` (created if absent, appended if present — your content is never touched).
+7. Writes the install manifest `.aidd/harness.json` (package version + installed layers + sha256 per installed file).
+
+The full guard × provider × moment coverage is the **Provider support matrix** in `AIDD.md`.
 
 Rules it follows:
 
@@ -99,6 +104,8 @@ After editing `settings.json`, restart Claude Code (or start a new session) so t
 | `AIDD_OVERRIDE_DOMAIN=ADR-NNNN` | allow a cross-layer import justified by an ADR |
 | `AIDD_OVERRIDE_RLS=ADR-NNNN` | allow an RLS-affecting migration justified by an ADR |
 | `AIDD_SECRETS_CATALOG=<path>` | point the secrets guard at a custom catalog |
+
+> Session overrides are **edit-time affordances** for supervised Claude Code sessions. The git pre-commit net deliberately ignores all of them at commit time.
 
 ## Verify
 

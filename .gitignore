@@ -24,3 +24,6 @@ Thumbs.db
 .aidd/telemetry/
 .aidd/.tdd-heartbeat.json
 .aidd/current/adversarial-context/
+.specs/scratchpad/*.md
+.specs/analysis/*.md
+.specs/reports/*.md

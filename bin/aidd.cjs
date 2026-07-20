@@ -10,13 +10,16 @@
 const fm = require("../lib/cli/files-map.cjs");
 
 function parseArgs(argv) {
-  const args = { command: argv[0] || "help", dir: undefined, mode: undefined, force: false, dryRun: false, json: false };
+  const args = { command: argv[0] || "help", dir: undefined, mode: undefined, force: false, dryRun: false, json: false, providers: undefined, noGitHooks: false };
   for (let i = 1; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--dir") args.dir = argv[(i += 1)];
     else if (a.startsWith("--dir=")) args.dir = a.slice(6);
     else if (a === "--mode") args.mode = argv[(i += 1)];
     else if (a.startsWith("--mode=")) args.mode = a.slice(7);
+    else if (a === "--providers") args.providers = String(argv[(i += 1)] || "").split(",").filter(Boolean);
+    else if (a.startsWith("--providers=")) args.providers = a.slice(12).split(",").filter(Boolean);
+    else if (a === "--no-git-hooks") args.noGitHooks = true;
     else if (a === "--force") args.force = true;
     else if (a === "--dry-run") args.dryRun = true;
     else if (a === "--json") args.json = true;
@@ -88,10 +91,18 @@ function main() {
       console.log(`${fm.PKG_NAME}@${fm.packageVersion()} — AIDD harness installer
 
 Usage:
-  aidd init    [--dir <path>] [--mode hybrid|copy] [--force] [--dry-run]
+  aidd init    [--dir <path>] [--mode hybrid|copy] [--providers claude,codex,git]
+               [--no-git-hooks] [--force] [--dry-run]
   aidd update  [--dir <path>] [--force] [--dry-run]
   aidd doctor  [--dir <path>] [--json]
   aidd version
+
+Layers:
+  init detecta as ferramentas presentes (.claude/, .codex/ ou AGENTS.md, .git/)
+  e instala as camadas de enforcement correspondentes (claude edit-time, codex
+  warn-tier, git pre-commit net). --providers força a lista; --no-git-hooks
+  veta a rede git. O manifesto .aidd/harness.json registra as camadas; update
+  as atualiza; doctor checa camada por camada.
 
 Modes:
   hybrid (default)  engine hooks run from node_modules/${fm.PKG_NAME} and

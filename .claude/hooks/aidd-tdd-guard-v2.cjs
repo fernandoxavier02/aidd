@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 /**
- * aidd-tdd-guard-v2.cjs — TDD_Guard_V2
+ * aidd-tdd-guard-v2.cjs — TDD_Guard_V2 (thin shell over lib/guards/tdd.cjs)
  *
  * Hook PreToolUse (Edit|Write) que enforça o ciclo RED→GREEN:
- *  - Edição em test file → executa vitest sync → upsert heartbeat v2
- *  - Edição em prod file → exige entry RED recente cobrindo o arquivo
+ *  - Edição em test file → executa o runner configurado (sync) → upsert heartbeat v2
+ *  - Edição em prod file → decisão delegada ao núcleo neutro (policy "edit")
+ *
+ * O núcleo (lib/guards/tdd.cjs) detém a REGRA (classificação, cobertura, TTL,
+ * pending_green); esta casca detém a MAQUINARIA edit-time: spawnSync do runner,
+ * escrita do heartbeat, cache por mtime, telemetria e o override de sessão.
  *
  * Property: CI-1 (heartbeat schema integrity)
  *
- * @version 2.0.0
+ * @version 2.1.0
  */
 
 "use strict";
@@ -23,6 +27,7 @@ const {
   safeAppend,
   verificationFile,
 } = require("./lib/aidd-paths.cjs");
+const core = require("./lib/guards/tdd.cjs");
 
 // ---------------------------------------------------------------------------
 // Constantes
@@ -34,8 +39,7 @@ const TELEMETRY_DIR = path.join(getProjectRoot(), ".aidd", "telemetry");
 const HEURISTIC_LOG = path.join(TELEMETRY_DIR, "tdd-heuristic.jsonl");
 const OVERRIDES_LOG = path.join(TELEMETRY_DIR, "tdd-overrides.jsonl");
 
-const HEARTBEAT_TTL_MS = 30 * 60 * 1000; // 30 minutos
-const OVERRIDE_MIN_LENGTH = 20;
+const OVERRIDE_MIN_LENGTH = core.OVERRIDE_MIN_LENGTH;
 
 // SKILL_MAP fixo — basename do test → skill/hook cobrido
 const SKILL_MAP = {
@@ -48,40 +52,6 @@ const SKILL_MAP = {
   "confidence-score": null, // consumido por aidd-impl-start + aidd-close (sem skill direta)
   "domain-init": "aidd-domain-init",
 };
-
-// Padrões de arquivos de teste
-const TEST_PATTERNS = [
-  /\.(test|spec)\.[jt]sx?$/,
-  /(^|\/)__tests__\//,
-  /(^|\/)tests?\//,
-  /^test_.*\.py$/,
-  /_test\.py$/,
-];
-
-// Padrões de produção (production roots)
-const PRODUCTION_PATTERNS = [
-  /^apps\/[^/]+\/(src|app)\//,
-  /^services\/[^/]+\/(src|app)\//,
-  /^packages\/[^/]+\/src\//,
-];
-
-// Padrões a ignorar (não são nem test nem prod)
-const IGNORE_PATTERNS = [
-  /\.md$/,
-  /\.json$/,
-  /\.ya?ml$/,
-  /\.toml$/,
-  /\.lock$/,
-  /^docs\//,
-  /^scripts\//,
-  /^infra\//,
-  /^\.aidd\//,
-  /^\.kiro\//,
-  /^\.claude\//,
-  /^\.pipeline\//,
-  /^\.gitignore$/,
-  /package(-lock)?\.json$/,
-];
 
 // ---------------------------------------------------------------------------
 // I/O helpers
@@ -113,30 +83,9 @@ function allow() {
   process.exit(0);
 }
 
-function matchesAny(rel, patterns) {
-  return patterns.some((p) => p.test(rel));
-}
-
 // ---------------------------------------------------------------------------
-// Heartbeat v2
+// Heartbeat v2 (escrita — leitura vem do core)
 // ---------------------------------------------------------------------------
-
-/**
- * Lê o heartbeat — suporta schemas v1 e v2.
- * @returns {{ entries: Array, lastTestEditTs?: number, buffer_reason?: string }}
- */
-function readHeartbeat() {
-  try {
-    const raw = JSON.parse(fs.readFileSync(HEARTBEAT_FILE, "utf8"));
-    // Garante que sempre tem campo entries (schema v2)
-    if (!Array.isArray(raw.entries)) {
-      raw.entries = [];
-    }
-    return raw;
-  } catch {
-    return { entries: [] };
-  }
-}
 
 function writeHeartbeat(state) {
   try {
@@ -144,9 +93,6 @@ function writeHeartbeat(state) {
   } catch { /* non-fatal */ }
 }
 
-/**
- * Upsert de entry no heartbeat v2.
- */
 function upsertEntry(heartbeat, testPath, fields) {
   const idx = heartbeat.entries.findIndex((e) => e.test_path === testPath);
   const entry = {
@@ -165,53 +111,6 @@ function upsertEntry(heartbeat, testPath, fields) {
   return heartbeat;
 }
 
-/**
- * Busca entry RED recente que cobre o arquivo de produção especificado.
- * Retorna { entry, wildcardOutsideSubtree } onde wildcardOutsideSubtree=true
- * indica que havia um candidato wildcard mas fora da subtree (para mensagem específica).
- */
-function findRedEntryCovering(heartbeat, prodPath, root) {
-  const now = Date.now();
-  let wildcardOutsideSubtree = null; // guarda entry wildcard fora de subtree para mensagem específica
-
-  for (const entry of heartbeat.entries) {
-    if (entry.result !== "RED") continue;
-    const age = now - (entry.ts ?? 0);
-    if (age > HEARTBEAT_TTL_MS) continue;
-
-    const paths = entry.coverage_paths ?? [];
-
-    // Verificar cobertura exata
-    if (paths.includes(prodPath)) return { entry, wildcardOutsideSubtree: null };
-    if (paths.includes(prodPath.replace(/\\/g, "/"))) return { entry, wildcardOutsideSubtree: null };
-
-    // Wildcard Rule 5 — só cobre subtree do test file (mitigação adversarial)
-    if (paths.length === 1 && paths[0] === "*") {
-      const testDir = path.dirname(entry.test_path);
-      const absTestDir = path.isAbsolute(testDir)
-        ? testDir
-        : path.join(root, testDir);
-      const absProd = path.isAbsolute(prodPath)
-        ? prodPath
-        : path.join(root, prodPath);
-      const normalTestDir = path.normalize(absTestDir);
-      const normalProd = path.normalize(absProd);
-      const targetIsInSubtree =
-        normalProd === normalTestDir ||
-        normalProd.startsWith(normalTestDir + path.sep);
-      if (!targetIsInSubtree) {
-        wildcardOutsideSubtree = entry; // guarda para mensagem específica
-        continue; // fora da subtree → não conta como cobertura válida
-      }
-      return { entry, wildcardOutsideSubtree: null };
-    }
-  }
-  return { entry: null, wildcardOutsideSubtree };
-}
-
-/**
- * Marca uma entry como pending_green=true após prod edit.
- */
 function markPendingGreen(heartbeat, testPath) {
   const entry = heartbeat.entries.find((e) => e.test_path === testPath);
   if (entry) entry.pending_green = true;
@@ -219,21 +118,10 @@ function markPendingGreen(heartbeat, testPath) {
 
 // ---------------------------------------------------------------------------
 // Coverage Inference — 6 regras determinísticas (§3.3)
-// Aplica em ordem; primeira que casa vence.
-// Rule >= 2 → log em tdd-heuristic.jsonl
 // ---------------------------------------------------------------------------
 
-/**
- * Inferência de coverage_paths para um arquivo de teste.
- * @param {string} testPath — caminho relativo ao project root
- * @param {string} testContent — conteúdo lido do arquivo de teste (ou "")
- * @param {string} root — project root absoluto
- * @param {string} sessionId — para telemetria
- * @returns {{ rule: number, paths: string[], warn?: string }}
- */
 function inferCoverage(testPath, testContent, root, sessionId) {
   // Regra 1: Header `// covers:`
-  // Procura na primeira linha (ou primeiras 5 para tolerância)
   const firstLines = testContent.split("\n").slice(0, 5).join("\n");
   const headerMatch = firstLines.match(/^\/\/\s*covers:\s*(.+)$/m);
   if (headerMatch) {
@@ -244,32 +132,28 @@ function inferCoverage(testPath, testContent, root, sessionId) {
     return { rule: 1, paths };
   }
 
-  // Regra 2: Co-located twin — `<dir>/<name>.test.<ext>` → `<dir>/<name>.<ext>`
+  // Regra 2: Co-located twin
   const twinMatch = testPath.match(/^(.+)\.(test|spec)\.([jt]sx?)$/);
   if (twinMatch) {
     const twinPath = `${twinMatch[1]}.${twinMatch[3]}`;
-    const twinAbs = path.isAbsolute(twinPath)
-      ? twinPath
-      : path.join(root, twinPath);
+    const twinAbs = path.isAbsolute(twinPath) ? twinPath : path.join(root, twinPath);
     if (fs.existsSync(twinAbs)) {
       logHeuristic({ test_path: testPath, inferred_paths: [twinPath], rule_id: 2, ts: Date.now(), session_id: sessionId });
       return { rule: 2, paths: [twinPath] };
     }
   }
 
-  // Regra 3: Hook test convention — `tests/aidd/hook-<NAME>.test.ts` → `.claude/hooks/aidd-<NAME>.cjs`
+  // Regra 3: Hook test convention
   const hookConvMatch = testPath.match(/(?:^|\/)tests\/aidd\/hook-([^/]+?)\.test\.[jt]s$/);
   if (hookConvMatch) {
-    const hookName = hookConvMatch[1]; // ex: "secrets-guard"
-    const hookPath = `.claude/hooks/aidd-${hookName}.cjs`;
+    const hookPath = `.claude/hooks/aidd-${hookConvMatch[1]}.cjs`;
     logHeuristic({ test_path: testPath, inferred_paths: [hookPath], rule_id: 3, ts: Date.now(), session_id: sessionId });
     return { rule: 3, paths: [hookPath] };
   }
 
-  // Regra 4: Skill test convention — basename casa SKILL_MAP
-  const basename = path.basename(testPath, path.extname(testPath)); // ex: "hook-batch-loop.test" → remove .ts → ainda tem .test
-  const basenameNoExt = basename.replace(/\.(test|spec)$/, ""); // remove .test
-  // Tentar com e sem prefixo "hook-"
+  // Regra 4: Skill test convention
+  const basename = path.basename(testPath, path.extname(testPath));
+  const basenameNoExt = basename.replace(/\.(test|spec)$/, "");
   const skillKey = basenameNoExt.replace(/^hook-/, "");
   if (SKILL_MAP.hasOwnProperty(skillKey) && SKILL_MAP[skillKey] !== null) {
     const skillPath = `.claude/skills/${SKILL_MAP[skillKey]}/SKILL.md`;
@@ -278,7 +162,6 @@ function inferCoverage(testPath, testContent, root, sessionId) {
   }
 
   // Regra 5: Property / integration / E2E / smoke — wildcard de subtree
-  // Nome contém property|integration|e2e|smoke E sem header covers
   const lowerPath = testPath.toLowerCase();
   if (/property|integration|e2e|smoke/.test(lowerPath)) {
     logHeuristic({ test_path: testPath, inferred_paths: ["*"], rule_id: 5, ts: Date.now(), session_id: sessionId });
@@ -340,10 +223,6 @@ function logDenial(rel, reason) {
 // Execução de testes (sync) com cache por mtime
 // ---------------------------------------------------------------------------
 
-/**
- * Carrega o comando de teste de .claude/aidd-tdd-config.json (campo testCommand: string[]).
- * Default: vitest. O caminho do teste e anexado como ultimo argumento.
- */
 function loadTestCommand(testPath) {
   let cmd = ["npx", "vitest", "run", "--reporter=verbose"];
   try {
@@ -356,9 +235,6 @@ function loadTestCommand(testPath) {
   return { bin: cmd[0], args: [...cmd.slice(1), testPath] };
 }
 
-/**
- * Executa o runner de teste configurado e retorna "RED" | "GREEN".
- */
 function execTestSync(testPath, root) {
   try {
     const cmd = loadTestCommand(testPath);
@@ -378,9 +254,6 @@ function execTestSync(testPath, root) {
   }
 }
 
-/**
- * Obtém mtime do arquivo em ms. Retorna 0 se não existe.
- */
 function getMtime(filePath) {
   try {
     return fs.statSync(filePath).mtimeMs;
@@ -409,12 +282,13 @@ function getMtime(filePath) {
     return;
   }
 
+  const root = getProjectRoot();
+
   // Opt-in: TDD RED-gate honors enabled:false in aidd-tdd-config.json
-  // (armed at Phase 9 via /aidd-impl-start; off during setup/scaffolding).
-  try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(getProjectRoot(), ".claude", "aidd-tdd-config.json"), "utf8"));
-    if (cfg.enabled === false) { allow(); return; }
-  } catch { /* default: active */ }
+  if (!core.loadTddConfig(root).enabled) {
+    allow();
+    return;
+  }
 
   const filePath = payload.tool_input?.file_path;
   if (!filePath) {
@@ -423,7 +297,6 @@ function getMtime(filePath) {
   }
 
   const sessionId = payload.session_id ?? "unknown";
-  const root = getProjectRoot();
   const safe = validateSafePath(filePath, root);
 
   if (!safe.ok) {
@@ -434,15 +307,15 @@ function getMtime(filePath) {
   }
 
   const rel = safe.rel;
+  const kind = core.classifyTddPath(rel);
 
-  // Ignorar arquivos não relevantes
-  if (matchesAny(rel, IGNORE_PATTERNS)) {
+  if (kind === "ignore" || kind === "other") {
     allow();
     return;
   }
 
   // ---------------------------------------------------------------------------
-  // Override check — AIDD_TDD_OVERRIDE ≥ 20 chars
+  // Override check — AIDD_TDD_OVERRIDE ≥ 20 chars (sessão supervisionada)
   // ---------------------------------------------------------------------------
   const overrideReason = process.env.AIDD_TDD_OVERRIDE ?? "";
   if (overrideReason && overrideReason.trim().length >= OVERRIDE_MIN_LENGTH) {
@@ -458,19 +331,15 @@ function getMtime(filePath) {
   }
 
   // ---------------------------------------------------------------------------
-  // Test file path → exec + heartbeat upsert
+  // Test file path → exec + heartbeat upsert (maquinaria edit-time)
   // ---------------------------------------------------------------------------
-  const isTest = matchesAny(rel, TEST_PATTERNS);
-
-  if (isTest) {
+  if (kind === "test") {
     const absPath = path.join(root, rel);
     const currentMtime = getMtime(absPath);
-    const heartbeat = readHeartbeat();
+    const heartbeat = core.readHeartbeat(root);
 
-    // Cache hit — mtime não mudou → reusar resultado
     const existingEntry = heartbeat.entries.find((e) => e.test_path === rel);
     if (existingEntry && existingEntry.cache_mtime === currentMtime && currentMtime > 0) {
-      // Cache hit — não re-executa, mas reseta pending_green (nova intenção de edit)
       existingEntry.pending_green = false;
       existingEntry.ts = Date.now();
       writeHeartbeat(heartbeat);
@@ -478,7 +347,6 @@ function getMtime(filePath) {
       return;
     }
 
-    // Cache miss → executar vitest
     const testContent = (() => {
       try {
         return fs.readFileSync(absPath, "utf8");
@@ -489,7 +357,6 @@ function getMtime(filePath) {
 
     const coverage = inferCoverage(rel, testContent, root, sessionId);
 
-    // Emitir WARN Rule 6 no stderr (visível no terminal)
     if (coverage.rule === 6 && coverage.warn) {
       process.stderr.write(`[tdd-guard-v2 WARN] ${coverage.warn}\n`);
     }
@@ -510,52 +377,28 @@ function getMtime(filePath) {
   }
 
   // ---------------------------------------------------------------------------
-  // Production file → verificar RED heartbeat cobrindo este arquivo
+  // Production file → decisão do núcleo neutro (policy "edit")
   // ---------------------------------------------------------------------------
-  const isProd = matchesAny(rel, PRODUCTION_PATTERNS);
+  const heartbeat = core.readHeartbeat(root);
+  const verdict = core.evaluate({
+    action: tool === "Write" ? "write" : "edit",
+    path: rel,
+    content: "",
+    projectRoot: root,
+    fileExists: true,
+    config: { tdd: { enabled: true, policy: "edit", heartbeat } },
+  });
 
-  if (isProd) {
-    const heartbeat = readHeartbeat();
-    const { entry: candidate, wildcardOutsideSubtree } = findRedEntryCovering(heartbeat, rel, root);
-
-    // Wildcard Rule 5 fora da subtree — mensagem específica de subtree
-    if (!candidate && wildcardOutsideSubtree) {
-      const testDir = path.dirname(wildcardOutsideSubtree.test_path);
-      const reason =
-        `Rule 5 wildcard só cobre subtree de ${testDir}; ${rel} está fora da subtree. ` +
-        `Adicione // covers: ${rel} no arquivo de teste ${wildcardOutsideSubtree.test_path} ou escreva um teste específico.`;
-      logDenial(rel, reason);
-      deny(reason);
-      return;
-    }
-
-    if (!candidate) {
-      const reason =
-        `${rel} é production code mas nenhum teste RED recente cobre este arquivo nos últimos 30 min. ` +
-        `TDD_Guard_V2 (AIDD Req 3): escreva o teste primeiro (RED), depois implemente (GREEN). ` +
-        `Override legítimo: defina AIDD_TDD_OVERRIDE=<reason ≥ ${OVERRIDE_MIN_LENGTH} chars> nesta sessão.`;
-      logDenial(rel, reason);
-      deny(reason);
-      return;
-    }
-
-    // candidate.pending_green=true → segundo prod edit sem re-exec do teste → DENY
-    if (candidate.pending_green) {
-      const reason =
-        `${rel}: o teste ${candidate.test_path} está pendente de GREEN. ` +
-        `Re-execute o teste (edite-o novamente ou rode os testes) antes de continuar com prod edits.`;
-      logDenial(rel, reason);
-      deny(reason);
-      return;
-    }
-
-    // ALLOW + marcar pending_green
-    markPendingGreen(heartbeat, candidate.test_path);
-    writeHeartbeat(heartbeat);
-    allow();
+  if (verdict.verdict === "deny") {
+    logDenial(rel, verdict.message);
+    deny(verdict.message);
     return;
   }
 
-  // Arquivo não é test nem prod (ex: .claude/hooks, docs, etc.) → ALLOW
+  // ALLOW + marcar pending_green no teste que cobriu
+  if (verdict.evidence?.test_path) {
+    markPendingGreen(heartbeat, verdict.evidence.test_path);
+    writeHeartbeat(heartbeat);
+  }
   allow();
 })();
