@@ -6,7 +6,7 @@ Project-agnostic product that materializes **AIDD — AI-Driven Development** as
 
 Install it into any project with one command, fill the placeholders in `PROJECT_BRIEF.md`, and your repository starts every AI session already knowing the methodology, the stop rules, and where to read.
 
-**Status:** v2.0.0 — npm product (`@fx-studio-ai/aidd`): installable, updatable, self-diagnosing. Same 6 core docs + 12 hooks + 8 skills + configs + tests as the v1 template, now with a CLI and a version manifest.
+**Status:** v2.0.0 — Git standalone harness: installable, updatable, self-diagnosing. 6 core docs + 12 hooks + 8 skills + configs + tests, with a CLI and a version manifest.
 
 ## What AIDD gives you
 
@@ -15,44 +15,26 @@ Install it into any project with one command, fill the placeholders in `PROJECT_
 - **Twelve-phase lifecycle** from intake to documentation, with five human approval gates.
 - **Working memory** in `.aidd/current/` so any session can pick up exactly where the last left off.
 
-## Install (npm — recommended)
+## Installation & Setup
 
 ```bash
-cd my-project
-npm install --save-dev @fx-studio-ai/aidd
-npx aidd init          # scaffold docs/configs/skills + wire the hooks
-npx aidd doctor        # verify everything is green
+# Clone the AIDD harness into your project or global tooling directory
+git clone https://github.com/fernandoxavier02/aidd.git ~/.aidd-harness
+
+# Initialize docs/configs/skills + wire the hooks in your project
+node ~/.aidd-harness/bin/aidd.cjs init
+node ~/.aidd-harness/bin/aidd.cjs doctor
 ```
 
-Then fill the placeholders in `PROJECT_BRIEF.md`, read `AIDD.md` + `AIDD-RUNBOOK.md`, and restart your Claude Code session so the hooks load.
+Then fill the placeholders in `PROJECT_BRIEF.md`, read `AIDD.md` + `AIDD-RUNBOOK.md`, and restart your AI session so the hooks load.
 
-### How the install works (hybrid model)
+### How the harness works
 
-- **Engine (the 12 hooks + the neutral guard core + git-net + Codex adapter)** stays inside `node_modules/@fx-studio-ai/aidd/` and is referenced from the generated `.claude/settings.json`, the git pre-commit wrapper, and `.codex/hooks.json`. Upgrading the package upgrades the guards on every layer — no file copying.
+- **Engine (the 12 hooks + the neutral guard core + git-net + Codex adapter)** is referenced from the generated `.claude/settings.json`, the git pre-commit wrapper, and `.codex/hooks.json`.
 - **Editable content** (methodology docs, `PROJECT_BRIEF.md`, configs, skills, secrets catalog) is copied into your project once and tracked in `.aidd/harness.json` (version + content fingerprint per file).
-- **`npx aidd update`** refreshes files you have **not** edited and never touches the ones you have. `--dry-run` previews; `--force` overrides.
-- **`npx aidd doctor`** checks the wiring end to end (engine reachable, hooks resolve, configs parse, drift report). Exit code 1 on errors — CI-friendly.
+- **`node ~/.aidd-harness/bin/aidd.cjs update`** refreshes files you have **not** edited and never touches the ones you have. `--dry-run` previews; `--force` overrides.
+- **`node ~/.aidd-harness/bin/aidd.cjs doctor`** checks the wiring end to end (engine reachable, hooks resolve, configs parse, drift report). Exit code 1 on errors — CI-friendly.
 - Existing `CLAUDE.md` / `AGENTS.md` / `.claude/settings.json` are **merged, never overwritten**: the bootloader lives in a marked block; hook registrations are added idempotently.
-
-### Projects that do not keep `node_modules`
-
-```bash
-npx -p @fx-studio-ai/aidd aidd init --mode copy
-```
-
-Copy mode ships the engine into `.claude/hooks/` as well — everything is hash-tracked, `aidd update` still works.
-
-### Via the unified FX Studio AI installer
-
-The unified installer offers a product menu (Pipeline Orchestrator, AIDD, or both):
-
-```bash
-npx @fx-studio-ai/pipeline-orchestrator-install
-```
-
-## Install (template clone — legacy)
-
-Cloning the repository and copying files by hand still works — see `INSTALL.md`. The npm route is preferred because it gives you versioned updates.
 
 ## CLI reference
 
